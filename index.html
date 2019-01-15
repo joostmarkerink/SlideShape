@@ -1,0 +1,237 @@
+<html>
+  <head>
+    <title>4x4 Slideshape</title>
+    <meta name="viewport" value="width=device-width"/>
+    <meta name="robots" value="noindex,nofollow"/>
+    <style>
+      html,body{
+        width:100%;
+        height:100%;
+      }
+      body{
+        background:#666;
+        margin:0;
+        font-family:sans-serif;
+      }
+      #slideshape{
+        background-color:#000;
+        position:relative;
+        height:100vh;
+        width:100vh;
+        font-size:10vh;
+        text-align:center;
+        vertical-align:middle;
+        line-height:20vh;
+        color:hsla(40,100%,50%,0.8);
+        transform:translateX(-50%);
+        left:50%;top:0;
+      }
+      #slideshape > div{
+        position:absolute;
+        top:0;left:0;right:0;bottom:0;
+      }
+      .front > div{ background-color:#222; }
+      #slideshape .front > div.hole{
+        background-color:transparent;
+		background-image:none !important;
+        pointer-events:none;
+      }
+      #slideshape > div > div{
+        position:absolute;
+        width:25%;
+        height:25%;
+        background-size:contain;
+      }
+      .animate{ 
+        transition:transform .15s ease-out;
+        z-index:2;
+      }
+      #slideshape span{
+        opacity:0;
+        transition:opacity 0.5s linear;
+      }
+      .nav-visible #slideshape span{
+        opacity:1;
+      }
+      .c0{ left:0% ; } .c1{ left:25%; } .c2{ left:50%; } .c3{ left:75%; }
+      .r0{ top :0% ; } .r1{ top :25%; } .r2{ top :50%; } .r3{ top :75%; }
+      @media (orientation: portrait) {
+        #slideshape{
+          width:100vw;height:100vw;
+          font-size:10vw;
+          line-height:20vw;
+          transform:translateY(-50%);
+          left:0;top:50%;
+      	}
+      }
+    </style>
+  </head>
+  <body>
+    <div id="slideshape">
+      <div class="back"></div>
+      <div class="front"></div>
+    </div>
+    <script>
+      var hole=0;
+      var navVisible=false;
+      function randomImage(){
+        var mx=6;
+        var r=Math.round(Math.random()*mx);
+        if(r<(mx-1)){
+           return "url("+r+".svg)";  
+        }
+      }      
+      function createImageFromSource(src){
+        var svgHead='<?xml version="1.0"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd"><svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill="#ffffff">';
+        var svgTail='</g></svg>';
+        src=svgHead+src+svgTail;
+        var b = new Blob([src], {type: 'image/svg+xml'});
+        return URL.createObjectURL(b);
+      }
+      var graphics=[
+        createImageFromSource('<polygon points="0,0 100,0 100,100"/>'),
+        createImageFromSource('<polygon points="100,0 100,100 0,100"/>'),
+        createImageFromSource('<polygon points="100,100 0,100 0,0"/>'),
+        createImageFromSource('<polygon points="0,0 100,0 0,100"/>'),
+        createImageFromSource('<rect x="0" y="0" width="100" height="100"/>')   
+      ];
+      function get_front_tile(index){
+        return document.querySelector('#slideshape > .front > div[data-index="'+index+'"]');
+      }
+      function getTileData(){
+        var list=[];
+        var tiles=document.querySelectorAll('#slideshape > .front > div');
+        for(var i=0;i<16;i++){
+          var t=0;
+          if(i==hole){ t='h';
+          }else{
+            t=tiles[i].getAttribute('data-g');
+            if(!t || t.length==0) t='-';
+          }
+          list.push(t);
+        }
+        return list.join(",");
+      }
+      function setTileData(d){
+        d=d.split(',');
+        var tiles=document.querySelectorAll('#slideshape > .front > div');
+        for(var i=0;i<16;i++){
+          var t=d[i];
+          if(t=='h'){
+            hole=i;
+          }else{
+            if(t=='-'){
+              tiles[i].style.backgroundImage=null;
+            }else{
+              tiles[i].setAttribute('data-g',t);
+              tiles[i].style.backgroundImage='url('+graphics[parseInt(t)]+')';
+            }
+          }
+        }
+        holeChanged(true);
+      }
+      function holeChanged(skipStorage){
+        var fronts=document.querySelectorAll('#slideshape > .front > div');
+        if(skipStorage!=true) window.localStorage.tiles3=getTileData();
+        var oldHole=document.querySelector('#slideshape .hole');
+        if(oldHole) oldHole.classList.remove('hole');
+        get_front_tile(hole).classList.add('hole');
+        var h=getPosition(hole);
+        for(var i=0;i<16;i++){
+          var p=getPosition(i);
+          if(p.x==h.x && p.y==h.y-1)      { fronts[i].innerHTML='<span>&darr;</span>';
+          }else if(p.x==h.x && p.y==h.y+1){ fronts[i].innerHTML='<span>&uarr;</span>';
+          }else if(p.y==h.y && p.x==h.x-1){ fronts[i].innerHTML='<span>&rarr;</span>';
+          }else if(p.y==h.y && p.x==h.x+1){ fronts[i].innerHTML='<span>&larr;</span>';
+          }else{ fronts[i].innerHTML='';}
+        }
+      }
+      function getPosition(index){ return {x:index%4,y:Math.floor(index/4)}; }
+      function tile_click(e){
+        e.preventDefault();
+        if(navVisible){
+          var i=parseInt(this.getAttribute('data-index'));
+          var p=getPosition(i);
+          var h=getPosition(hole);
+          if(p.x==h.x && (p.y==h.y-1 || p.y==h.y+1)){;
+          }else if(p.y==h.y && (p.x==h.x-1 || p.x==h.x+1)){;
+          }else{ return; }
+          slideTile(this);
+        }
+        navInteraction();
+      }
+      function hideNav(){
+        document.querySelector('body').classList.remove('nav-visible');
+        navVisible=false;
+      }
+      var navTimer=0;
+      function navInteraction(){
+        if(navVisible==false){
+          //navInteraction();
+          document.querySelector('body').classList.add('nav-visible');
+          navVisible=true;
+        }
+        clearTimeout(navTimer);
+        navTimer=setTimeout(hideNav,5000);
+      }
+      
+      function slideTile_end(e){
+        this.classList.remove('animate');
+        this.removeEventListener('transitionend',slideTile_end,false); 
+        this.style.transform=null;
+        var oldHole=get_front_tile(hole);
+        oldHole.style.backgroundImage=this.style.backgroundImage;
+        var g=this.getAttribute('data-g');
+        if(!g || g.length==0) g='-';
+        oldHole.setAttribute('data-g',g);
+        hole=parseInt(this.getAttribute('data-index'));
+        holeChanged();
+        navInteraction();
+      }
+      function slideTile(tile){
+        var i=parseInt(tile.getAttribute('data-index'));
+        var p=getPosition(i);
+        var h=getPosition(hole); 
+        tile.addEventListener('transitionend',slideTile_end,false);
+        tile.classList.add('animate');
+        if(p.x==h.x)
+          tile.style.transform='translateY('+(h.y>p.y?100:-100)+'%)';
+        else if(p.y==h.y){
+          tile.style.transform='translateX('+(h.x>p.x?100:-100)+'%)';
+        }
+      }
+      function setup(){
+        var front=document.querySelector('#slideshape .front');
+	    var back =document.querySelector('#slideshape .back');
+
+        for(var i=0;i<16;i++){
+          var el=document.createElement('div');
+          var p=getPosition(i);
+          el.classList.add('r'+p.y);
+          el.classList.add('c'+p.x);
+          el.setAttribute('data-index',i);
+          var el2=el.cloneNode(true);
+          if(p.x==1 && p.y==1){
+            el2.style.backgroundColor="hsl(0,100%,50%)";
+          }else if(p.x==2 && p.y==1){
+            el2.style.backgroundColor="hsl(55,100%,50%)";
+          }else if(p.x==1 && p.y==2){
+            el2.style.backgroundColor="hsl(220,100%,50%)";
+          }else if(p.x==2 && p.y==2){
+            el2.style.backgroundColor='hsl(110,100%,50%)';
+          }
+          el.addEventListener('click',tile_click,false);
+          el.addEventListener('touchstart',tile_click,false);
+          front.appendChild(el);     
+          back.appendChild(el2);
+        }
+        var tiledata=window.localStorage.tiles3;
+        if(!tiledata) tiledata="-,0,1,1,2,2,3,4,4,-,h,3,-,4,-,-";
+        setTileData(tiledata);
+      }
+      setup();
+      
+
+    </script>
+  </body>
+</html>
